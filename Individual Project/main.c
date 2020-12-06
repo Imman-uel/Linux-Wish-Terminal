@@ -15,10 +15,11 @@
 #include <pthread.h>
 
 #define NTHREADS 10
-
+#define MAX_ARGS 10
 
 //creating a global array to keep track of the commands that are being provided by the user
-char *commands[900];
+char *commands;
+char *parameters[900];
 char *directories[900];
 int num_of_commands = 0;
 int num_elements_command = 0;
@@ -29,8 +30,11 @@ char error_message[30] = "An error has occurred\n";
 typedef struct __mycommands{
     char * cmd;
     char *redirect;
-    
+    int argc;    //number of args for the cmd
+    char *argv[MAX_ARGS];
+    char cmd_suffix;
     } __mycommands;
+
 
 //concat() function is meant to concatenate 2 strings(i.e path and filename) into 1 string.
 char *concat(char *s1,char *s2){
@@ -49,7 +53,17 @@ void path(){
 void cd(char *d){
     
     }
-    
+int runCommand(__mycommands * command1) {
+    char cmd[100];
+    printf("Command: %s\n", command1->cmd);
+    strcpy(cmd, "/bin/");
+    strcat(cmd,command1->cmd);
+    execv(cmd,command1->argv);
+    //execvp(command1->cmd, command1->argv);
+        //printf("%s\n%s\n%s\n", command1->argv[0], command1->argv[1], command1->argv[2]);
+    return 1;
+
+    }
     
 //strremove() takes out all of the newline characters from the inputs given by the user
 char *strremove(char *str, const char *sub) {
@@ -64,7 +78,35 @@ int execute_file(){
     }
 
 //the execute_command() function is responsble for executing the command and the parameters passed into the function.
-void *execute_command(void *arg){
+void *execute_command(__mycommands *command1){
+    //char *env[] = { (char *) "PATH=/bin",0};
+    
+    pid_t  pid;
+    int    status;
+
+    if ((pid = fork()) < 0) {     /* fork a child process           */
+         printf("*** ERROR: forking child process failed\n");
+         exit(1);
+    }
+    else if (pid == 0) {          /* for the child process:         */
+        runCommand(command1);
+         return(0);
+    }
+    else {                                  /* for the parent:      */
+         while (wait(&status) != pid)       /* wait for completion  */
+              ;
+    }
+//    pid_t childstatus;
+//    childstatus = fork();
+//    if (childstatus != 0) { //if parent process is running
+//        wait(NULL);
+//    } else {
+//        /* This area is child process */
+//        runCommand(command1);
+//        return(0);
+//    }
+
+  
     return 0;
     }
 
@@ -114,20 +156,41 @@ void wishMessage(){
 }
 
 void *getCommands(char *arg[]){
-    char line[1024];
-    int count =0,i=0,j=0;
-    char *array[100], *pch;
+   
     char *splittedCharacters;
+    char space[100];
+    int cmdlen;
+    __mycommands *command1 = (__mycommands*) malloc(sizeof(__mycommands));
+    command1->argc = 0;
+    strcpy(space," ");
+     command1->cmd = *arg;
+     command1->argv[0] = command1->cmd;
     while((splittedCharacters = strtok_r(*arg," ",arg))){
-               printf("%s\n", splittedCharacters);
+            
+        if (sizeof(splittedCharacters)==0){
+           break;
+        }
+        cmdlen = strlen(splittedCharacters);
+        if (splittedCharacters[cmdlen-1] == '\n') {    //
+            splittedCharacters[cmdlen-1] = '\0';    //
+        }
+        
+        if (strcmp(splittedCharacters, "exit") == 0){
+            exit(1);
+        }
+        command1->argv[command1->argc] = splittedCharacters;    //put arg into arg array
+        command1->argc = command1->argc+1;
+        
+        
            }
-
+    execute_command(command1);
+    
+     
 return 0;
 }
 
 //Runs interative mode
 void interactiveMode(){
-    
     
     while (1){
         wishMessage();
